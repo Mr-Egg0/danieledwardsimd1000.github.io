@@ -1,0 +1,458 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+
+		<link rel="icon" type="image/png" href="images/CardIcon.ico">
+
+	<title>Super Picture Poker</title>
+	<style>
+		.navbar {
+			background-color: rgba(57, 60, 159, 1);
+			text-align: center;
+			padding: 5px 10px;
+			font-family: Monaco, monospace;
+		}
+
+		.navbar a {
+			color: white;
+			text-decoration: none;
+			padding: 15px 40px;
+			font-size: 32px;
+			display: inline-block;
+			transition: background-color 0.3s, color 0.3s;
+		}
+
+		.navbar a:hover {
+			background-color: rgb(140, 142, 222);
+			color: black;
+			border-radius: 5px;
+		}
+
+
+		.canvas-wrapper {
+			position: relative;
+			width: 768px;
+			margin: 0 auto;
+		}
+
+		.play-btn {
+			position: absolute;
+			top: 300px;
+			left: 300px;
+			padding: 10px 20px;
+			font-size: 40px;
+			z-index: 3;
+			cursor: pointer;
+		}
+
+
+		.canvas {
+			display: block;
+			margin: 0 auto;
+		}
+
+		body {
+		margin: 0;
+		padding: 0;
+        background-color: #000000; /* dark gray */
+        color: rgb(255, 255, 255);           /* optional: changes text color to be readable */
+    	}
+	</style>
+
+
+
+
+
+
+</head>
+
+<body>
+
+	<div class="navbar">
+		<a href="index.html"><b>Play</b></a>
+		<a href="rules.html"><b>Rules</b></a>
+		<a href="credits.html"><b>Credits</b></a>
+	</div>
+
+	<p></p>
+	<div class="canvas-wrapper">
+		<button class="play-btn" id="playBtn" onclick="dealCards()">Play</button>
+		<canvas id="myCanvas" width="768" height="768" style="border:4px solid #edff9b;">
+			Your browser does not support the HTML5 canvas tag.</canvas>
+	</div>
+
+	<script>
+		const canvas = document.getElementById("myCanvas");
+		const ctx = canvas.getContext("2d");
+
+		const bg = new Image();
+		bg.src = "Images/CardTable.png"
+
+		bg.onload = () => {
+			// Don't need to draw the background more than once
+			ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+		}
+
+		const x_p_pos = [38, 184, 330, 476, 622]
+		const yPlayer = 580;
+
+		const holdButton = new Image();
+		holdButton.src = "Images/HoldPrompt.png"
+		const tradeArrow = new Image();
+		tradeArrow.src = "Images/TradeArrow.png"
+		const cardLvlArray = [1, 2, 3, 4, 5, 6]
+		const cardSpriteArray = ["Images/Card1.png", "Images/Card2.png", "Images/Card3.png", "Images/Card4.png", "Images/Card5.png", "Images/Card6.png"]
+		const finalRatings = ["Images/JunkPair.png", "Images/1Pair.png", "Images/2Pair.png", "Images/3Pair.png", "Images/FullPair.png", "Images/4Pair.png", "Images/5Pair.png"]
+		const cardRear = new Image();
+		cardRear.src = "Images/Card_rear.png"
+		const winLoseTieImgArray = ["Images/win.png", "Images/lose.png", "Images/tie.png"]
+		const restartPrompt = new Image();
+		restartPrompt.src = "Images/restartPrompt.png"
+
+
+		const cardSwoosh = new Audio("Sound/swoosh.mp3")
+		const opponentCardsSound = new Audio("Sound/OppCard.mp3")
+		const playerCardFlip = new Audio("Sound/PlayerCard.mp3")
+		const bgMusic = new Audio("Sound/BGM.mp3")
+		bgMusic.loop=true;
+		bgMusic.volume = 0.3;
+		const winSFX = new Audio("Sound/winSound.wav")
+		const loseSFX = new Audio("Sound/loseSound.wav")
+		const tieSFX = new Audio("Sound/tieSound.wav")
+		const tradeT = new Audio("Sound/tradeConfirm.wav")
+		const tradeF = new Audio("Sound/tradeUndo.wav")
+		tradeT.volume = .5;
+		tradeF.volume = .5;
+		const restartSFX = new Audio("Sound/restartSound.wav")
+
+
+		var winLoseTieImg = new Image();
+		var finalPlayerRatingImg = new Image();
+		var finalOpponentRatingImg = new Image()
+		var playerHand = []
+		var opponentHand = []
+		var cardIndex
+		var cardSelected
+		var currentCardX = 0
+		var currentAnimating = 0
+		var animationInterval
+		var playerTradeArray = [false, false, false, false, false]
+
+		var finalPlayerRank = 0;
+		var finalOpponentRank = 0;
+
+
+		function getRandomFive(array) {
+			result = [];
+			for (let i = 0; i < 5; i++) {
+				randomIndex = Math.floor(Math.random() * array.length);
+				result.push(array[randomIndex]);
+			}
+			return result;
+		}
+
+		function dealCards() {
+			
+			bgMusic.play();
+
+			document.getElementById("playBtn").style.display = "none";
+			playerHand = getRandomFive(cardLvlArray);
+			opponentHand = getRandomFive(cardLvlArray);
+
+			console.log("Player Hand:", playerHand);
+			console.log("Opponent Hand:", opponentHand);
+			drawPlayerCards();
+			drawOpponentCardsRear();
+			setTimeout(buttonsAvailable, 4300);
+		}
+
+
+		function buttonsAvailable() {
+
+			ctx.drawImage(holdButton, 50, 200);
+			window.addEventListener('keydown', pressedHold)
+
+		}
+
+		function pressedHold() {
+			if (event.key === " ") {
+				window.removeEventListener('keydown', pressedHold);
+				if (playerTradeArray.some(v => v === true)) {
+					for (let i = 0; i < 5; i++) {
+						if (playerTradeArray[i] === true) {
+							let newIndex = Math.floor(Math.random() * cardLvlArray.length);
+							playerHand[i] = cardLvlArray[newIndex];
+						}
+					}
+					currentAnimating = 0;
+
+					ctx.clearRect(x_p_pos[0], 535, tradeArrow.width * 6, tradeArrow.height);//clearning the trade arrows
+					ctx.drawImage(bg, x_p_pos[0], 535, tradeArrow.width * 6, tradeArrow.height, x_p_pos[0], 535, tradeArrow.width * 6, tradeArrow.height);
+
+					ctx.clearRect(0, yPlayer, canvas.width, 200);//clearing the cards
+					ctx.drawImage(bg, 0, yPlayer, canvas.width, 200, 0, yPlayer, canvas.width, 200);
+					drawPlayerCards();
+				}
+				finalPlayerRank = checkHand(playerHand);
+				finalOpponentRank = checkHand(opponentHand);
+				ctx.clearRect(50, 200, holdButton.width, holdButton.height);
+				ctx.drawImage(bg, 50, 200, holdButton.width, holdButton.height, 50, 200, holdButton.width, holdButton.height);
+
+				if (playerTradeArray.some(v => v === true)) {
+					setTimeout(concludePlayerScore, 4300);
+				}
+				else {
+					concludePlayerScore();
+				}
+
+			}
+			else if (event.key === "1") {
+				if (playerTradeArray[0] == true) {
+					tradeF.play();
+					playerTradeArray[0] = false;
+					ctx.clearRect(x_p_pos[0], 535, tradeArrow.width, tradeArrow.height);
+					ctx.drawImage(bg, x_p_pos[0], 535, tradeArrow.width, tradeArrow.height, x_p_pos[0], 535, tradeArrow.width, tradeArrow.height);
+				}
+				else if (playerTradeArray[0] == false) {
+					tradeT.play();
+					playerTradeArray[0] = true;
+					ctx.drawImage(tradeArrow, x_p_pos[0], 535, tradeArrow.width, tradeArrow.height);
+				}
+			}
+			else if (event.key === "2") {
+				if (playerTradeArray[1] == true) {
+					tradeF.play();
+					playerTradeArray[1] = false;
+					ctx.clearRect(x_p_pos[1], 535, tradeArrow.width, tradeArrow.height);
+					ctx.drawImage(bg, x_p_pos[1], 535, tradeArrow.width, tradeArrow.height, x_p_pos[1], 535, tradeArrow.width, tradeArrow.height);
+				}
+				else if (playerTradeArray[1] == false) {
+					tradeT.play();
+					playerTradeArray[1] = true;
+					ctx.drawImage(tradeArrow, x_p_pos[1], 535, tradeArrow.width, tradeArrow.height);
+				}
+			}
+			else if (event.key === "3") {
+				if (playerTradeArray[2] == true) {
+					tradeF.play();
+					playerTradeArray[2] = false;
+					ctx.clearRect(x_p_pos[2], 535, tradeArrow.width, tradeArrow.height);
+					ctx.drawImage(bg, x_p_pos[2], 535, tradeArrow.width, tradeArrow.height, x_p_pos[2], 535, tradeArrow.width, tradeArrow.height);
+				}
+				else if (playerTradeArray[2] == false) {
+					tradeT.play();
+					playerTradeArray[2] = true;
+					ctx.drawImage(tradeArrow, x_p_pos[2], 535, tradeArrow.width, tradeArrow.height);
+				}
+			}
+			else if (event.key === "4") {
+				if (playerTradeArray[3] == true) {
+					tradeF.play();
+					playerTradeArray[3] = false;
+					ctx.clearRect(x_p_pos[3], 535, tradeArrow.width, tradeArrow.height);
+					ctx.drawImage(bg, x_p_pos[3], 535, tradeArrow.width, tradeArrow.height, x_p_pos[3], 535, tradeArrow.width, tradeArrow.height);
+				}
+				else if (playerTradeArray[3] == false) {
+					tradeT.play();
+					playerTradeArray[3] = true;
+					ctx.drawImage(tradeArrow, x_p_pos[3], 535, tradeArrow.width, tradeArrow.height);
+				}
+			}
+			else if (event.key === "5") {
+				if (playerTradeArray[4] == true) {
+					tradeF.play();
+					playerTradeArray[4] = false;
+					ctx.clearRect(x_p_pos[4], 535, tradeArrow.width, tradeArrow.height);
+					ctx.drawImage(bg, x_p_pos[4], 535, tradeArrow.width, tradeArrow.height, x_p_pos[4], 535, tradeArrow.width, tradeArrow.height);
+				}
+				else if (playerTradeArray[4] == false) {
+					tradeT.play();
+					playerTradeArray[4] = true;
+					ctx.drawImage(tradeArrow, x_p_pos[4], 535, tradeArrow.width, tradeArrow.height);
+				}
+			}
+		}
+
+		function checkHand(hand) {
+			let rankCounts = {};
+
+			hand.forEach(card => {
+				rankCounts[card] = (rankCounts[card] || 0) + 1;
+			});
+
+			const counts = Object.values(rankCounts).sort((a, b) => b - a);
+
+			if (counts[0] === 5) return (6);  // five of a kind
+			else if (counts[0] === 4) return (5); // four of a kind
+			else if (counts[0] === 3 && counts[1] === 2) return (4); //full house
+			else if (counts[0] === 3) return (3); //three of a kind
+			else if (counts[0] === 2 && counts[1] === 2) return (2); //two pairs
+			else if (counts[0] === 2) return (1); //one pair
+
+			else return (0); //junk
+		}
+
+
+		function drawOpponentCardsRear() {
+			if (cardRear.complete) {
+				for (let i = 0; i < 5; i++) {
+					ctx.drawImage(cardRear, x_p_pos[i], 32);
+				}
+			}
+		}
+
+		function drawPlayerCards() {
+
+			if (currentAnimating >= 5) return;
+
+			let animIndex = 4 - currentAnimating;
+			let cardIndex = playerHand[animIndex] - 1;
+			let img = new Image();
+
+			img.src = cardSpriteArray[cardIndex] + "?v=" + Math.random();
+
+			img.onload = () => {
+				currentCardX = -100;
+
+				cardSwoosh.play();
+
+				animationInterval = setInterval(() => animationLoopPlayer(img, animIndex), 1);
+			};
+		}
+
+		function animationLoopPlayer(img, animIndex) {
+			animatePlayerCards(img);
+
+			if (currentCardX >= x_p_pos[animIndex]) {
+				clearInterval(animationInterval);
+
+				// draw the final clean copy
+				ctx.drawImage(img, x_p_pos[animIndex], yPlayer);
+				playerCardFlip.play();
+
+				currentAnimating++;
+				drawPlayerCards();
+			}
+
+		}
+
+		function animatePlayerCards(img) {
+			updateP();
+			drawP(img);
+		}
+		function updateP() {
+			currentCardX = currentCardX + 2;
+		}
+		function drawP(img) {
+			let prevCardX = currentCardX - 2;
+			// erase only the old card area (NOT the whole canvas!)
+			ctx.clearRect(prevCardX, yPlayer, img.width, img.height);
+
+			// redraw the background behind that area so it doesn't leave holes
+			ctx.drawImage(bg, prevCardX, yPlayer, img.width, img.height, prevCardX, yPlayer, img.width, img.height);
+
+			// draw the card at the new position
+			ctx.drawImage(img, currentCardX, yPlayer);
+		}
+
+		function revealOpponentHand() {
+			opponentCardsSound.play();
+			for (let i = 0; i < 5; i++) {
+
+				let cardIndex = opponentHand[i] - 1;
+				let img = new Image();
+				img.src = cardSpriteArray[cardIndex];
+
+				img.onload = () => {
+					// Clear the rear card
+					ctx.clearRect(x_p_pos[i], 32, cardRear.width, cardRear.height);
+					ctx.drawImage(bg, x_p_pos[i], 32, cardRear.width, cardRear.height, x_p_pos[i], 32, cardRear.width, cardRear.height);
+
+					// Draw the real card
+					ctx.drawImage(img, x_p_pos[i], 32);
+				}
+			}
+		}
+
+		function concludePlayerScore() {
+
+			//display player handtype
+			finalPlayerRatingImg.src = finalRatings[finalPlayerRank]
+
+			finalPlayerRatingImg.onload = () => {
+				ctx.drawImage(finalPlayerRatingImg, 250, 500, finalPlayerRatingImg.width, finalPlayerRatingImg.height);
+			}
+			revealOpponentHand();
+			setTimeout(concludeOpponentScore, 1000);
+		}
+
+		function concludeOpponentScore() {
+			finalOpponentRatingImg.src = finalRatings[finalOpponentRank]
+
+			finalOpponentRatingImg.onload = () => {
+				ctx.drawImage(finalOpponentRatingImg, 250, 200, finalPlayerRatingImg.width, finalPlayerRatingImg.height);
+			}
+			setTimeout(winOrLose, 1500);
+		}
+
+		function winOrLose() {
+			let index;
+
+			if (finalPlayerRank === finalOpponentRank) {
+				index = 2; //tie
+				tieSFX.play();
+			} else if (finalPlayerRank > finalOpponentRank) {
+				index = 0; //win
+				winSFX.play();
+			} else {
+				index = 1; //lose
+				loseSFX.play();
+			}
+
+			winLoseTieImg = new Image();
+			winLoseTieImg.src = winLoseTieImgArray[index];
+
+			winLoseTieImg.onload = () => {
+				ctx.drawImage(winLoseTieImg, 120, 280);
+			}
+			//give restartprompt
+			setTimeout(giveRestartPrompt, 1500);
+		}
+
+		function giveRestartPrompt() {
+			restartSFX.play();
+			ctx.drawImage(restartPrompt, 5, 430, restartPrompt.width, restartPrompt.height);
+			window.addEventListener('keydown', restartPressed);
+		}
+
+		function restartPressed() {
+			if (event.key === "r") {
+				window.removeEventListener('keydown', restartPressed);
+				restart();
+			}
+		}
+
+		function restart() {
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+			playerHand = [];
+			opponentHand = [];
+			cardIndex = 0;
+			cardSelected = null;
+			currentCardX = 0;
+			currentAnimating = 0;
+			animationInterval = null;
+			playerTradeArray = [false, false, false, false, false];
+			finalPlayerRank = 0;
+			finalOpponentRank = 0;
+
+			dealCards()
+		}
+
+	</script>
+
+
+</body>
+
+</html>
