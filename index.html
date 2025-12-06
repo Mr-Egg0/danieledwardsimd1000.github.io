@@ -55,8 +55,8 @@
 		body {
 		margin: 0;
 		padding: 0;
-        background-color: #000000; /* dark gray */
-        color: rgb(255, 255, 255);           /* optional: changes text color to be readable */
+        background-color: #000000;
+        color: rgb(255, 255, 255);
     	}
 	</style>
 
@@ -90,7 +90,7 @@
 		bg.src = "Images/CardTable.png"
 
 		bg.onload = () => {
-			// Don't need to draw the background more than once
+			//draw background one time
 			ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
 		}
 
@@ -327,7 +327,7 @@
 			if (currentCardX >= x_p_pos[animIndex]) {
 				clearInterval(animationInterval);
 
-				// draw the final clean copy
+				//draw final card image
 				ctx.drawImage(img, x_p_pos[animIndex], yPlayer);
 				playerCardFlip.play();
 
@@ -346,13 +346,13 @@
 		}
 		function drawP(img) {
 			let prevCardX = currentCardX - 2;
-			// erase only the old card area (NOT the whole canvas!)
+			//erase old card spot
 			ctx.clearRect(prevCardX, yPlayer, img.width, img.height);
 
-			// redraw the background behind that area so it doesn't leave holes
+			//redraw backgroiund where card was
 			ctx.drawImage(bg, prevCardX, yPlayer, img.width, img.height, prevCardX, yPlayer, img.width, img.height);
 
-			// draw the card at the new position
+			//draw card at new pos
 			ctx.drawImage(img, currentCardX, yPlayer);
 		}
 
